@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use strict;
+use JSON;
+use Monitoring::Plugin;
+
+my $jsonstr=`python check_brewpi_mdns.py`;
+my $json = JSON->new->allow_nonref;
+
+my $np = Monitoring::Plugin->new; 
+my $bhash;
+eval {$bhash=$json->decode($jsonstr);};
+if ($@){
+	$np->plugin_exit("CRITICAL","BrewPi Status ($jsonstr)- $@");
+}
+#$np->getopts;
+
+foreach my $key(sort keys($bhash)) {
+	my $uom="F";
+	if ($key=~/(Glycol|Heating).+/) {
+		$uom="";
+	}
+	if ($key=~/[a-zA-Z]+/) { # skip the non-alpha keys (hardware GPIOs I dont use)
+		$np->add_perfdata(
+		     label => $key,
+		     value => $bhash->{$key},
+		     uom => $uom,
+		   );
+
+	}		
+}
+
+$np->plugin_exit("OK","BrewPi Status");
